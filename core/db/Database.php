@@ -1,8 +1,10 @@
 <?php
 
 
-namespace app\core;
+namespace app\core\db;
 
+
+use app\core\Application;
 
 class Database
 {
@@ -33,14 +35,20 @@ class Database
                 continue;
             }
 
-            require_once Application::$ROOT_DIR.'/migrations/'.$migration;
+            require_once Application::$ROOT_DIR . '/migrations/' . $migration;
             $className = pathinfo($migration, PATHINFO_FILENAME);
 
             $instance = new $className;
-            echo "Applying migration $migration".PHP_EOL;
+            $this->log("Applying migration $migration");
             $instance->up();
-            echo "Applied migration $migration".PHP_EOL;
+            $this->log("Applied migration $migration");
             $newMigrations[] = $migration;
+        }
+
+        if (!empty($newMigrations)) {
+            $this->saveMigrations($newMigrations);
+        } else {
+            $this->log("All migrations are applied");
         }
 
     }
@@ -56,5 +64,25 @@ class Database
         $statement->execute();
 
         return $statement->fetchAll(\PDO::FETCH_COLUMN);
+    }
+
+    public function saveMigrations(array $migrations)
+    {
+
+        $str = implode(",", array_map(fn($m) => "('$m')", $migrations));
+
+        $statement = $this->pdo->prepare("INSERT INTO migrations (migration) 
+            VALUES $str");
+        $statement->execute();
+    }
+
+    public function prepare($sql)
+    {
+        return $this->pdo->prepare($sql);
+    }
+
+    protected function log($message)
+    {
+        echo '['.date('Y-m-d H:i:s') . '] - ' . $message . PHP_EOL;
     }
 }
